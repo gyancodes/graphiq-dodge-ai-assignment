@@ -1,0 +1,21 @@
+{
+  "name": "graphiq-server",
+  "version": "1.0.0",
+  "description": "GraphIQ - Graph-based Data Modeling and Query System",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "ingest": "node ingest.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "openai": "^4.73.0",
+    "sql.js": "^1.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}

@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: graphiq-server
+    env: node
+    rootDir: server # Points to the server directory
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: GROQ_API_KEY
+        sync: false # You must set this manually in the Render dashboard!
