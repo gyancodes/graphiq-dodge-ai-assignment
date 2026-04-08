@@ -76,7 +76,9 @@ export const cytoscapeStylesheet: cytoscape.StylesheetStyle[] = [
   {
     selector: 'node.dimmed',
     style: {
-      'opacity': 0.15,
+      'opacity': 0.05,
+      'text-opacity': 0,
+      'underlay-opacity': 0,
     } as any,
   },
   {
@@ -119,7 +121,7 @@ export const cytoscapeStylesheet: cytoscape.StylesheetStyle[] = [
   {
     selector: 'edge.dimmed',
     style: {
-      'opacity': 0.05,
+      'opacity': 0.02,
     } as any,
   },
 ];

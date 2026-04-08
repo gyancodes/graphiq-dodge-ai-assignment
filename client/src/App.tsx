@@ -146,6 +146,17 @@ function App() {
     }, 380);
   }, []);
 
+  const loadNodeDetail = useCallback(async (nodeId: string) => {
+    setSelectedNode(nodeId);
+
+    try {
+      const detail = await fetchNodeDetailData(nodeId);
+      setNodeDetail(detail);
+    } catch (error) {
+      console.error('Node detail error:', error);
+    }
+  }, []);
+
   const extractNodeIdsFromEdgeKeys = useCallback((edgeKeys: string[]) => {
     const nodeIds = new Set<string>();
 
@@ -199,7 +210,12 @@ function App() {
 
       setHighlightedNodes(new Set(uniqueNodeIds));
       setHighlightedEdges(new Set(edgeIds));
-      setTimeout(() => runGraphLayout(focusNodeId || prioritizeFocusNode(uniqueNodeIds)), 80);
+      const prioritizedFocusNodeId = focusNodeId || prioritizeFocusNode(uniqueNodeIds);
+      setTimeout(() => runGraphLayout(prioritizedFocusNodeId), 80);
+
+      if (prioritizedFocusNodeId) {
+        void loadNodeDetail(prioritizedFocusNodeId);
+      }
     } catch (error) {
       console.error('Highlight expansion error:', error);
       setHighlightedNodes(new Set(uniqueNodeIds));
@@ -207,7 +223,7 @@ function App() {
     } finally {
       setExpandingNodeId(null);
     }
-  }, [extractNodeIdsFromEdgeKeys, prioritizeFocusNode, runGraphLayout]);
+  }, [extractNodeIdsFromEdgeKeys, loadNodeDetail, prioritizeFocusNode, runGraphLayout]);
 
   const handleSend = useCallback(async (messageText?: string) => {
     const text = messageText || input;
@@ -268,15 +284,8 @@ function App() {
   }, [ensureGraphContextForHighlights, input, loading]);
 
   const handleNodeClick = useCallback(async (nodeId: string) => {
-    setSelectedNode(nodeId);
-
-    try {
-      const detail = await fetchNodeDetailData(nodeId);
-      setNodeDetail(detail);
-    } catch (error) {
-      console.error('Node detail error:', error);
-    }
-  }, []);
+    await loadNodeDetail(nodeId);
+  }, [loadNodeDetail]);
 
   const handleExpandNode = useCallback(async (nodeId: string) => {
     if (expandingNodeId) {

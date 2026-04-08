@@ -15,6 +15,7 @@ const MAX_RESULT_ROWS = 50;
 const MAX_SQL_REPAIR_ATTEMPTS = 2;
 const MAX_GRAPH_EXPANSIONS = 12;
 const MAX_GRAPH_EXPANSION_DEPTH = 2;
+const MAX_NEIGHBORS_PER_HIGHLIGHT_SEED = 4;
 
 function isGuardrailReject(text) {
   return text.trim() === 'GUARDRAIL_REJECT';
@@ -253,14 +254,21 @@ function prioritizeFocusNode(nodeIds) {
   return nodeIds[0] || null;
 }
 
+function getNodePriorityIndex(nodeId) {
+  const index = NODE_PRIORITY.findIndex((prefix) => nodeId.startsWith(prefix));
+  return index === -1 ? NODE_PRIORITY.length : index;
+}
+
 function compareNodePriority(left, right) {
-  const leftIndex = NODE_PRIORITY.findIndex((prefix) => left.startsWith(prefix));
-  const rightIndex = NODE_PRIORITY.findIndex((prefix) => right.startsWith(prefix));
-  return (leftIndex === -1 ? NODE_PRIORITY.length : leftIndex) - (rightIndex === -1 ? NODE_PRIORITY.length : rightIndex);
+  return getNodePriorityIndex(left) - getNodePriorityIndex(right);
 }
 
 function createEdgeKey(source, target, label = '') {
   return `${source}->${target}:${label}`;
+}
+
+function getNodeTypePrefix(nodeId) {
+  return NODE_PRIORITY.find((prefix) => nodeId.startsWith(prefix)) || nodeId.split('_')[0];
 }
 
 function mergeGraphPayload(baseGraph, incomingGraph) {
@@ -469,6 +477,28 @@ function buildAdjacency(edges) {
   return adjacency;
 }
 
+function collectImmediateNeighborhood(graphContext, seedNodeIds, neighborLimit = MAX_NEIGHBORS_PER_HIGHLIGHT_SEED) {
+  const adjacency = buildAdjacency(graphContext.edges);
+  const nodeIds = new Set(seedNodeIds);
+  const edgeIds = new Set();
+
+  for (const seedNodeId of seedNodeIds) {
+    const neighbors = (adjacency.get(seedNodeId) || [])
+      .sort((left, right) => compareNodePriority(left.nodeId, right.nodeId))
+      .slice(0, neighborLimit);
+
+    for (const neighbor of neighbors) {
+      nodeIds.add(neighbor.nodeId);
+      edgeIds.add(createEdgeKey(neighbor.edge.source, neighbor.edge.target, neighbor.edge.label || ''));
+    }
+  }
+
+  return {
+    nodeIds: [...nodeIds].sort(compareNodePriority),
+    edgeIds: [...edgeIds],
+  };
+}
+
 function findShortestPath(adjacency, startNodeId, targetNodeId) {
   if (startNodeId === targetNodeId) {
     return { nodes: [startNodeId], edges: [] };
@@ -568,6 +598,8 @@ function deriveHighlightPayload(db, referencedNodeIds) {
   const availableNodeIds = new Set(graphContext.nodes.map((node) => node.id));
   const connectedSeedNodeIds = uniqueNodeIds.filter((nodeId) => availableNodeIds.has(nodeId));
   const focusNodeId = prioritizeFocusNode(connectedSeedNodeIds.length > 0 ? connectedSeedNodeIds : uniqueNodeIds);
+  const distinctSeedTypes = new Set(uniqueNodeIds.map((nodeId) => getNodeTypePrefix(nodeId)));
+  const shouldPreferLocalNeighborhood = distinctSeedTypes.size === 1 && uniqueNodeIds.length > 1;
 
   if (!focusNodeId) {
     return {
@@ -581,20 +613,43 @@ function deriveHighlightPayload(db, referencedNodeIds) {
   const highlightNodeSet = new Set([focusNodeId]);
   const highlightEdgeSet = new Set();
 
-  for (const targetNodeId of connectedSeedNodeIds) {
-    const path = findShortestPath(adjacency, focusNodeId, targetNodeId);
-    if (!path) {
-      highlightNodeSet.add(targetNodeId);
-      continue;
-    }
+  if (shouldPreferLocalNeighborhood) {
+    const localNeighborhood = collectImmediateNeighborhood(
+      graphContext,
+      connectedSeedNodeIds.length > 0 ? connectedSeedNodeIds : [focusNodeId],
+    );
 
-    for (const nodeId of path.nodes) {
+    for (const nodeId of localNeighborhood.nodeIds) {
       highlightNodeSet.add(nodeId);
     }
 
-    for (const edge of path.edges) {
-      highlightEdgeSet.add(createEdgeKey(edge.source, edge.target, edge.label || ''));
+    for (const edgeId of localNeighborhood.edgeIds) {
+      highlightEdgeSet.add(edgeId);
     }
+  } else {
+    for (const targetNodeId of connectedSeedNodeIds) {
+      const path = findShortestPath(adjacency, focusNodeId, targetNodeId);
+      if (!path) {
+        highlightNodeSet.add(targetNodeId);
+        continue;
+      }
+
+      for (const nodeId of path.nodes) {
+        highlightNodeSet.add(nodeId);
+      }
+
+      for (const edge of path.edges) {
+        highlightEdgeSet.add(createEdgeKey(edge.source, edge.target, edge.label || ''));
+      }
+    }
+  }
+
+  const focusNeighborhood = collectImmediateNeighborhood(graphContext, [focusNodeId], 3);
+  for (const nodeId of focusNeighborhood.nodeIds) {
+    highlightNodeSet.add(nodeId);
+  }
+  for (const edgeId of focusNeighborhood.edgeIds) {
+    highlightEdgeSet.add(edgeId);
   }
 
   for (const nodeId of uniqueNodeIds) {
