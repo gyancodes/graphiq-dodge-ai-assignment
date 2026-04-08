@@ -1,6 +1,10 @@
 import cytoscape from 'cytoscape';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const defaultApiBaseUrl = import.meta.env.DEV
+  ? 'http://localhost:3001'
+  : 'https://graphiq-server.onrender.com';
+
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || defaultApiBaseUrl).replace(/\/$/, '');
 
 export const NODE_COLORS: Record<string, string> = {
   customer: '#818cf8',

@@ -7,6 +7,7 @@ import { NodeDetailPanel } from './NodeDetailPanel';
 
 interface GraphPanelProps {
   elements: cytoscape.ElementDefinition[];
+  graphError: string | null;
   highlightedNodes: Set<string>;
   selectedNode: string | null;
   expandingNodeId: string | null;
@@ -22,6 +23,7 @@ interface GraphPanelProps {
 
 export function GraphPanel({
   elements,
+  graphError,
   highlightedNodes,
   selectedNode,
   expandingNodeId,
@@ -47,7 +49,7 @@ export function GraphPanel({
         )}
       </div>
 
-      {elements.length > 0 && (
+      {elements.length > 0 ? (
         <CytoscapeComponent
           className="graph-canvas"
           elements={elements}
@@ -77,6 +79,13 @@ export function GraphPanel({
           maxZoom={4}
           minZoom={0.2}
         />
+      ) : (
+        <div className="graph-empty-state">
+          <h3>{graphError ? 'Graph failed to load' : 'Graph is loading'}</h3>
+          <p>
+            {graphError || 'Waiting for graph data from the API.'}
+          </p>
+        </div>
       )}
 
       <div className="graph-legend">

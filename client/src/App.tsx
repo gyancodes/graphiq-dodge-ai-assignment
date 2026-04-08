@@ -25,6 +25,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [graphError, setGraphError] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -45,8 +46,10 @@ function App() {
 
     if (graphResult.status === 'fulfilled') {
       setGraphData(graphResult.value);
+      setGraphError(null);
     } else {
       console.error('Graph fetch error:', graphResult.reason);
+      setGraphError('The frontend could not reach the graph API. Check VITE_API_URL for the deployed frontend.');
     }
 
     if (statsResult.status === 'fulfilled') {
@@ -320,6 +323,7 @@ function App() {
       <div className="app-container">
         <GraphPanel
           elements={cytoscapeElements}
+          graphError={graphError}
           highlightedNodes={highlightedNodes}
           selectedNode={selectedNode}
           expandingNodeId={expandingNodeId}
